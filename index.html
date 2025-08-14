@@ -6,66 +6,33 @@
 <title>One-File Photo Editor</title>
 <style>
   :root{
-    --bg:#0f1115;
-    --panel:#161a22;
-    --panel2:#1b2130;
-    --text:#eef2ff;
-    --muted:#a9b2c7;
-    --accent:#5e9cff;
-    --accent2:#6ee7b7;
-    --danger:#ff6b6b;
-    --shadow:0 10px 30px rgba(0,0,0,.35);
-    --radius:14px;
+    --bg:#0f1115; --panel:#161a22; --panel2:#1b2130; --text:#eef2ff; --muted:#a9b2c7;
+    --accent:#5e9cff; --accent2:#6ee7b7; --danger:#ff6b6b; --shadow:0 10px 30px rgba(0,0,0,.35); --radius:14px;
   }
   *{box-sizing:border-box}
-  body{
-    margin:0;
-    background:linear-gradient(180deg,#0b0e13,#101521 35%,#0b0e13 100%);
-    color:var(--text);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple Color Emoji,Segoe UI Emoji;
-    -webkit-font-smoothing:antialiased;
-  }
-  header{
-    position:sticky; top:0; z-index:50;
-    background:rgba(15,17,21,.75); backdrop-filter: blur(10px);
-    padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between;
-    border-bottom:1px solid #1d2433;
-  }
+  body{margin:0;background:linear-gradient(180deg,#0b0e13,#101521 35%,#0b0e13);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  header{position:sticky;top:0;z-index:50;background:rgba(15,17,21,.75);backdrop-filter:blur(10px);padding:10px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #1d2433}
   header .title{font-weight:700}
-  header .actions{display:flex; gap:8px; flex-wrap:wrap}
-  button,.btn{
-    appearance:none; border:0; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer;
-    color:var(--text); background:var(--panel2); box-shadow:var(--shadow); transition:.2s transform,.2s background;
-    display:inline-flex; align-items:center; gap:8px;
-  }
+  header .actions{display:flex;gap:8px;flex-wrap:wrap}
+  button,.btn{appearance:none;border:0;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer;color:var(--text);background:var(--panel2);box-shadow:var(--shadow);display:inline-flex;align-items:center;gap:8px}
   button:active{transform:scale(.98)}
   button.primary{background:linear-gradient(135deg,var(--accent),#7aa8ff)}
   button.success{background:linear-gradient(135deg,var(--accent2),#34d399)}
   button.danger{background:linear-gradient(135deg,#ff7b84,var(--danger))}
-  button.ghost{background:transparent; border:1px solid #2a3145}
+  button.ghost{background:transparent;border:1px solid #2a3145}
   input[type=file]{display:none}
 
-  .wrap{max-width:1100px; margin:14px auto; padding:0 12px 80px}
-  .stage{
-    background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
-    padding:10px; display:grid; grid-template-columns:1fr; gap:10px;
-  }
-  .viewer{
-    position:relative; background:#0a0d14; border-radius:12px; overflow:hidden; min-height:60vh;
-    display:flex; align-items:center; justify-content:center;
-  }
+  .wrap{max-width:1100px;margin:14px auto;padding:0 12px 80px}
+  .stage{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;display:grid;grid-template-columns:1fr;gap:10px}
+  .viewer{position:relative;background:#0a0d14;border-radius:12px;overflow:hidden;min-height:60vh;display:flex;align-items:center;justify-content:center}
 
-  /* Layering & portrait-friendly sizing */
-  .viewer video,
-  .viewer canvas{
-    position:absolute; inset:0; width:100%; height:100%;
-    object-fit:contain; display:none;
+  /* Layering & portrait sizing */
+  .viewer video, .viewer canvas{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:none;
   }
-  .viewer video{ z-index:1; }
-  .viewer canvas{ z-index:2; }
-
-  /* Mirror only the LIVE front-camera preview (export remains unmirrored) */
-  .viewer video.mirror{ transform:scaleX(-1); }
+  .viewer video{z-index:1}
+  .viewer canvas{z-index:2}
+  .viewer video.mirror{transform:scaleX(-1)}
 
   .overlay-grid{
     position:absolute; inset:0; pointer-events:none; z-index:3;
@@ -78,29 +45,27 @@
   }
   .overlay-grid.show{opacity:1}
 
-  .controls{
-    background:var(--panel); border-radius:var(--radius); padding:8px; display:grid; gap:4px;
-  }
-  .row{display:grid; grid-template-columns:130px 1fr 60px; align-items:center; gap:10px; padding:6px 8px; border-radius:10px;}
+  .controls{background:var(--panel);border-radius:var(--radius);padding:8px;display:grid;gap:4px}
+  .row{display:grid;grid-template-columns:130px 1fr 60px;align-items:center;gap:10px;padding:6px 8px;border-radius:10px}
   .row:hover{background:#141a27}
-  .row label{color:var(--muted); font-size:.95rem}
+  .row label{color:var(--muted);font-size:.95rem}
   .row input[type=range]{width:100%}
-  .row output{justify-self:end; color:#c9d4ee; min-width:40px; text-align:right; font-variant-numeric:tabular-nums}
+  .row output{justify-self:end;color:#c9d4ee;min-width:40px;text-align:right;font-variant-numeric:tabular-nums}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:6px 0}
+  .pill{background:#1f2739;padding:3px 8px;border-radius:999px;font-size:.8rem;color:#cdd7f3}
+  .subtle{color:var(--muted);font-size:.9rem}
 
-  .toolbar{display:flex; flex-wrap:wrap; gap:8px; padding:6px 0}
-  .subtle{color:var(--muted); font-size:.9rem}
-
-  /* Crop selection */
-  .crop-rect{
-    position:absolute; border:2px dashed #9cc3ff; box-shadow: inset 0 0 0 9999px rgba(0,0,0,.35);
-    touch-action:none; display:none; z-index:4;
-  }
+  /* Crop */
+  .crop-rect{position:absolute;border:2px dashed #9cc3ff;box-shadow:inset 0 0 0 9999px rgba(0,0,0,.35);touch-action:none;display:none;z-index:4}
   .crop-rect.active{display:block}
-  .pill{background:#1f2739; padding:3px 8px; border-radius:999px; font-size:.8rem; color:#cdd7f3}
+
+  /* tiny debug badge (shows support + captured size) */
+  .badge{position:fixed;right:8px;bottom:8px;background:#1f2739;color:#cdd7f3;padding:6px 10px;border-radius:999px;font-size:.75rem;opacity:.8}
+  .badge.hide{display:none}
 
   @media(min-width:900px){
     .stage{grid-template-columns:1fr 380px}
-    .controls{position:sticky; top:70px; align-self:start}
+    .controls{position:sticky;top:70px;align-self:start}
   }
 </style>
 </head>
@@ -142,7 +107,7 @@
         <span class="pill" id="hintMode">VIEW</span>
       </div>
 
-      <div class="subtle">Tip: “Take/Choose Photo” opens the iPhone camera if Safari blocks live camera without HTTPS.</div>
+      <div class="subtle">Tip: “Take/Choose Photo” opens the camera if live preview is blocked without HTTPS.</div>
 
       <div class="row">
         <label for="rngBrightness">Brightness</label>
@@ -190,6 +155,8 @@
   </div>
 </div>
 
+<div id="badge" class="badge hide"></div>
+
 <script>
 (() => {
   const qs = s => document.querySelector(s);
@@ -200,26 +167,34 @@
   const fileInput = qs('#fileInput');
   const cropRect = qs('#cropRect');
   const hintMode = qs('#hintMode');
+  const badge = qs('#badge');
 
   const ctx = canvas.getContext('2d');
-
-  // Hidden full-res source buffer
   const srcCanvas = document.createElement('canvas');
   const srcCtx = srcCanvas.getContext('2d');
 
-  /* ========= Robust camera for iPhone 13 / Safari ========= */
-  let stream = null;
-  let usingBackCamera = true;
-  let currentDeviceId = null;
+  /* ===== Feature-detect canvas filter support ===== */
+  const CANVAS_FILTER_SUPPORTED = (() => {
+    try { ctx.filter = 'none'; return typeof ctx.filter === 'string'; } catch { return false; }
+  })();
+
+  function showBadge(text, ms=1200){
+    badge.textContent = text;
+    badge.classList.remove('hide');
+    clearTimeout(showBadge.t);
+    showBadge.t = setTimeout(()=>badge.classList.add('hide'), ms);
+  }
+  showBadge(CANVAS_FILTER_SUPPORTED ? '🎨 Canvas filters: OK' : '🎨 Canvas filters: not supported');
+
+  /* ===== iPhone-friendly camera (deviceId pick + ready checks) ===== */
+  let stream = null, usingBackCamera = true, currentDeviceId = null;
 
   function once(target, ev){ return new Promise(res => target.addEventListener(ev, res, {once:true})); }
   function raf(){ return new Promise(r => requestAnimationFrame(r)); }
 
   async function waitForVideoReady(){
-    // iOS sometimes reports videoWidth=0 right after play(); wait for data.
     for (let i=0;i<20;i++){
-      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) return;
-      // requestVideoFrameCallback is best if present
+      if (video.readyState >= 2 && video.videoWidth > 0) return;
       if (typeof video.requestVideoFrameCallback === 'function'){
         await new Promise(r => video.requestVideoFrameCallback(()=>r()));
       } else {
@@ -229,90 +204,65 @@
   }
 
   async function pickCameraDeviceId(preferBack=true){
-    const getInputs = async () => (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const getInputs = async () => (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
     let devices = await getInputs();
     const haveLabels = devices.some(d => d.label);
     if (!haveLabels){
-      try{
-        const tmp = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
-        tmp.getTracks().forEach(t=>t.stop());
-        devices = await getInputs();
-      }catch{}
+      try{ const t=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); t.getTracks().forEach(x=>x.stop()); devices = await getInputs(); }catch{}
     }
     if (!devices.length) return null;
     const want = preferBack ? /(back|rear|wide|tele)/i : /(front|true.?depth)/i;
-    const byName = devices.find(d => want.test(d.label || ''));
-    if (byName) return byName.deviceId;
-    return preferBack ? (devices[devices.length-1]?.deviceId || devices[0].deviceId)
-                      : (devices[0]?.deviceId || devices[devices.length-1].deviceId);
+    const byName = devices.find(d => want.test(d.label||''));
+    return byName?.deviceId ?? (preferBack ? (devices[devices.length-1]?.deviceId || devices[0].deviceId)
+                                           : (devices[0]?.deviceId || devices[devices.length-1].deviceId));
   }
 
   function makeConstraints(deviceId){
-    const base = {
-      width:  { ideal: 1920 },
-      height: { ideal: 1080 },
-      aspectRatio: { ideal: 1920/1080 },
-      frameRate: { ideal: 30, max: 60 }
-    };
-    const videoC = deviceId
-      ? { ...base, deviceId: { exact: deviceId } }
-      : { ...base, facingMode: usingBackCamera ? { ideal: 'environment' } : { ideal: 'user' } };
-    return { video: videoC, audio: false };
+    const base = { width:{ideal:1920}, height:{ideal:1080}, aspectRatio:{ideal:1920/1080}, frameRate:{ideal:30,max:60} };
+    const videoC = deviceId ? {...base, deviceId:{exact:deviceId}} : {...base, facingMode: usingBackCamera?{ideal:'environment'}:{ideal:'user'}};
+    return { video: videoC, audio:false };
   }
 
   async function startCamera(){
     try{
-      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
-
+      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
       currentDeviceId = await pickCameraDeviceId(usingBackCamera);
       const constraints = makeConstraints(currentDeviceId);
-
       stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
       await video.play();
       await waitForVideoReady();
 
-      // Mirror only for front preview
       const label = stream.getVideoTracks()[0]?.label || '';
       const looksFront = /front|true.?depth/i.test(label);
       video.classList.toggle('mirror', !usingBackCamera || looksFront);
 
-      // Show live preview
       video.style.display = 'block';
       canvas.style.display = 'none';
     }catch(err){
-      alert('Camera error on Safari/iPhone.\nOpen over HTTPS (or localhost) and allow camera.\n\n' + err);
+      alert('Camera error. Use HTTPS (or localhost) and allow camera.\n\n' + err);
     }
   }
 
   async function snapFromVideo(){
-    // Ensure we have a real frame
     await waitForVideoReady();
-    if (typeof video.requestVideoFrameCallback === 'function'){
-      await new Promise(r => video.requestVideoFrameCallback(()=>r()));
-    }
-
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return;
 
-    // Copy the exact frame to our full-res buffer
-    srcCanvas.width = vw;
-    srcCanvas.height = vh;
+    srcCanvas.width = vw; srcCanvas.height = vh;
     srcCtx.drawImage(video, 0, 0, vw, vh);
 
-    // Now switch from live preview to the editing canvas
     fitCanvasToViewer();
-    pushHistory();
-    state = defaultState();
+    pushHistory(); state = defaultState();
 
     video.style.display = 'none';
     canvas.style.display = 'block';
 
     render();
+    showBadge(`📸 Captured ${vw}×${vh}`);
   }
-  /* =============== end camera section =============== */
 
-  /* =============== Editor state =============== */
+  /* ===== Editor state ===== */
   const defaultState = () => ({
     rotation: 0, flipH: false, flipV: false,
     filters: { brightness:100, contrast:100, saturation:100, hue:0, sepia:0, grayscale:0, blur:0, vignette:0 },
@@ -320,27 +270,32 @@
   });
 
   let state = defaultState();
-  const history = [];
-  const redoStack = [];
+  const history = [], redoStack = [];
 
   function pushHistory(){ history.push(JSON.stringify(state)); if (history.length>100) history.shift(); redoStack.length=0; }
   function undo(){ if (!history.length) return; redoStack.push(JSON.stringify(state)); state=JSON.parse(history.pop()); render(); }
   function redo(){ if (!redoStack.length) return; history.push(JSON.stringify(state)); state=JSON.parse(redoStack.pop()); render(); }
 
-  // Sliders
-  function bindRange(id,out,keyPath,fmt=(v)=>v){
-    const input=qs(id), output=qs(out); const [group,key]=keyPath;
-    input.addEventListener('input',()=>{ state[group][key]=Number(input.value); output.textContent=fmt(input.value); render(); });
-    bindRange.controls=bindRange.controls||[]; bindRange.controls.push({input,output,group,key,formatter:fmt});
+  // Sliders → state bindings
+  function bindRange(id, out, keyPath, fmt=(v)=>v){
+    const input = qs(id), output = qs(out);
+    const [group, key] = keyPath;
+    input.addEventListener('input', () => {
+      state[group][key] = Number(input.value);
+      output.textContent = fmt(input.value);
+      render();
+    });
+    bindRange.controls = bindRange.controls || [];
+    bindRange.controls.push({input, output, group, key, formatter:fmt});
   }
-  bindRange('#rngBrightness','#outBrightness',['filters','brightness'],v=>`${v}%`);
-  bindRange('#rngContrast','#outContrast',['filters','contrast'],v=>`${v}%`);
-  bindRange('#rngSaturation','#outSaturation',['filters','saturation'],v=>`${v}%`);
-  bindRange('#rngHue','#outHue',['filters','hue'],v=>`${v}°`);
-  bindRange('#rngSepia','#outSepia',['filters','sepia'],v=>`${v}%`);
-  bindRange('#rngGrayscale','#outGrayscale',['filters','grayscale'],v=>`${v}%`);
-  bindRange('#rngBlur','#outBlur',['filters','blur'],v=>`${v}px`);
-  bindRange('#rngVignette','#outVignette',['filters','vignette'],v=>`${v}%`);
+  bindRange('#rngBrightness', '#outBrightness', ['filters','brightness'], v=>`${v}%`);
+  bindRange('#rngContrast',   '#outContrast',   ['filters','contrast'],   v=>`${v}%`);
+  bindRange('#rngSaturation', '#outSaturation', ['filters','saturation'], v=>`${v}%`);
+  bindRange('#rngHue',        '#outHue',        ['filters','hue'],        v=>`${v}°`);
+  bindRange('#rngSepia',      '#outSepia',      ['filters','sepia'],      v=>`${v}%`);
+  bindRange('#rngGrayscale',  '#outGrayscale',  ['filters','grayscale'],  v=>`${v}%`);
+  bindRange('#rngBlur',       '#outBlur',       ['filters','blur'],       v=>`${v}px`);
+  bindRange('#rngVignette',   '#outVignette',   ['filters','vignette'],   v=>`${v}%`);
 
   // Buttons
   qs('#btnStartCam').addEventListener('click', startCamera);
@@ -357,22 +312,22 @@
   qs('#btnCropMode').addEventListener('click', toggleCropMode);
   qs('#btnApplyCrop').addEventListener('click', applyCrop);
 
-  // File input (also opens device camera on iPhone)
+  // File input
   fileInput.addEventListener('change', async (e)=>{
-    const f=e.target.files && e.target.files[0]; if(!f) return;
+    const f = e.target.files && e.target.files[0]; if (!f) return;
     await loadFromFile(f);
   });
 
-  // Before/after press & hold
+  // Before/after
   let holdTimer=null;
   canvas.addEventListener('pointerdown', ()=>{ holdTimer=setTimeout(()=>showOriginal(true),120); });
-  canvas.addEventListener('pointerup', ()=>{ clearTimeout(holdTimer); showOriginal(false); });
-  canvas.addEventListener('pointerleave', ()=>{ clearTimeout(holdTimer); showOriginal(false); });
+  canvas.addEventListener('pointerup',   ()=>{ clearTimeout(holdTimer); showOriginal(false); });
+  canvas.addEventListener('pointerleave',()=>{ clearTimeout(holdTimer); showOriginal(false); });
 
   function showOriginal(down){
     if (!srcCanvas.width) return;
-    if (down) drawToCanvas({bypassFilters:true,bypassTransforms:true});
-    else render();
+    if (down){ drawToCanvas({bypassFilters:true,bypassTransforms:true}); setPreviewCssFilter('none'); }
+    else { render(); }
   }
 
   // Load still image
@@ -388,8 +343,10 @@
       if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
 
       fitCanvasToViewer(); pushHistory(); state=defaultState();
+
       canvas.style.display='block'; video.style.display='none';
       render();
+      showBadge(`🖼️ Loaded ${bmp.width}×${bmp.height}`);
     }catch(err){ alert('Could not load image: '+err); }
   }
   function blobToBitmap(blob){
@@ -405,13 +362,12 @@
   function fitCanvasToViewer(){
     const rect = viewer.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    canvas.width = rect.width; canvas.height = rect.height;
   }
   window.addEventListener('resize', ()=>{ if (srcCanvas.width){ fitCanvasToViewer(); render(); } });
 
   // Filters
-  function buildFilter(){
+  function buildFilter(){ // for canvas
     const f=state.filters;
     return [
       `brightness(${f.brightness}%)`,
@@ -422,6 +378,13 @@
       `grayscale(${f.grayscale}%)`,
       `blur(${f.blur}px)`
     ].join(' ');
+  }
+  function buildCssFilter(){ // for preview fallback
+    return buildFilter();
+  }
+  function setPreviewCssFilter(val){
+    // only use CSS filters when canvas filters are NOT supported
+    canvas.style.filter = CANVAS_FILTER_SUPPORTED ? 'none' : (val || buildCssFilter());
   }
 
   // Draw
@@ -437,7 +400,7 @@
     const dx=(dW-drawW)/2, dy=(dH-drawH)/2;
 
     ctx.save();
-    if (!bypassFilters) ctx.filter=buildFilter();
+    if (!bypassFilters && CANVAS_FILTER_SUPPORTED){ ctx.filter = buildFilter(); }
     ctx.translate(dx+drawW/2, dy+drawH/2);
     if (!bypassTransforms){
       const rad=state.rotation*Math.PI/180;
@@ -448,7 +411,7 @@
     ctx.drawImage(srcCanvas, 0,0,sW,sH, 0,0,drawW,drawH);
     ctx.restore();
 
-    // Vignette overlay
+    // Vignette overlay (works in both modes)
     if (!bypassFilters && state.filters.vignette>0){
       const g=ctx.createRadialGradient(dW/2,dH/2,Math.min(dW,dH)*0.2, dW/2,dH/2,Math.max(dW,dH)*0.65);
       const a=Math.min(1,state.filters.vignette/100)*0.45;
@@ -457,26 +420,29 @@
       ctx.fillStyle=g; ctx.fillRect(0,0,dW,dH);
     }
 
+    // If canvas filters unsupported, apply CSS filter for visible preview
+    if (!bypassFilters) setPreviewCssFilter();
+
     cropRect.style.display = cropActive ? 'block' : 'none';
   }
   function render(){ if (!srcCanvas.width) return; drawToCanvas(); }
 
-  // Full-res export
+  // Export
   function renderToFullResCanvas(){
     const out=document.createElement('canvas');
     const sW=srcCanvas.width, sH=srcCanvas.height;
-    const rot=((state.rotation%360)+360)%360;
-    const swap=rot===90||rot===270;
+    const rot=((state.rotation%360)+360)%360, swap=rot===90||rot===270;
     out.width=swap?sH:sW; out.height=swap?sW:sH;
     const octx=out.getContext('2d');
     octx.save();
-    octx.filter=buildFilter();
-    octx.translate(out.width/2, out.height/2);
+    if (CANVAS_FILTER_SUPPORTED){ octx.filter = buildFilter(); }
+    octx.translate(out.width/2,out.height/2);
     octx.rotate(rot*Math.PI/180);
     octx.scale(state.flipH?-1:1, state.flipV?-1:1);
-    octx.translate(-sW/2, -sH/2);
+    octx.translate(-sW/2,-sH/2);
     octx.drawImage(srcCanvas,0,0);
     octx.restore();
+
     if (state.filters.vignette>0){
       const g=octx.createRadialGradient(out.width/2,out.height/2,Math.min(out.width,out.height)*0.2, out.width/2,out.height/2,Math.max(out.width,out.height)*0.65);
       const a=Math.min(1,state.filters.vignette/100)*0.45;
@@ -488,13 +454,20 @@
 
   async function downloadImage(){
     if (!srcCanvas.width) return;
+
+    if (!CANVAS_FILTER_SUPPORTED && (
+        state.filters.brightness!==100 || state.filters.contrast!==100 || state.filters.saturation!==100 ||
+        state.filters.hue!==0 || state.filters.sepia!==0 || state.filters.grayscale!==0 || state.filters.blur!==0
+      )){
+      alert('Your browser does not support baking filters into the download. The on-screen preview uses CSS filters.\nTip: Open in a newer Safari/Chrome or update iOS to export with filters baked in.');
+    }
+
     const out=renderToFullResCanvas();
     if (appliedCropInSrcSpace){
       const {x,y,w,h}=appliedCropInSrcSpace;
       const crop=document.createElement('canvas'); crop.width=w; crop.height=h;
       crop.getContext('2d').drawImage(out,x,y,w,h,0,0,w,h);
-      out.width=w; out.height=h;
-      out.getContext('2d').drawImage(crop,0,0);
+      out.width=w; out.height=h; out.getContext('2d').drawImage(crop,0,0);
     }
     out.toBlob((blob)=>{
       const a=document.createElement('a'); const url=URL.createObjectURL(blob);
@@ -512,7 +485,7 @@
   }
 
   // Crop
-  let cropActive=false; let drag=null; let appliedCropInSrcSpace=null;
+  let cropActive=false, drag=null, appliedCropInSrcSpace=null;
 
   function toggleCropMode(){
     cropActive=!cropActive; hintMode.textContent=cropActive?'CROP':'VIEW';
@@ -575,10 +548,7 @@
 
   // Init
   function init(){
-    video.style.display='none';
-    canvas.style.display='none';
-    hintMode.textContent='VIEW';
-    render();
+    video.style.display='none'; canvas.style.display='none'; hintMode.textContent='VIEW'; render();
   }
   init();
 })();
