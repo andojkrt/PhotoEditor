@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>One-File Photo Editor</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#161a22;
+    --panel2:#1b2130;
+    --text:#eef2ff;
+    --muted:#a9b2c7;
+    --accent:#5e9cff;
+    --accent2:#6ee7b7;
+    --danger:#ff6b6b;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:linear-gradient(180deg,#0b0e13,#101521 35%,#0b0e13 100%);
+    color:var(--text);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple Color Emoji,Segoe UI Emoji;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(15,17,21,.75); backdrop-filter: blur(10px);
+    padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between;
+    border-bottom:1px solid #1d2433;
+  }
+  header .title{font-weight:700}
+  header .actions{display:flex; gap:8px; flex-wrap:wrap}
+  button,.btn{
+    appearance:none; border:0; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer;
+    color:var(--text); background:var(--panel2); box-shadow:var(--shadow); transition:.2s transform,.2s background;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  button:active{transform:scale(.98)}
+  button.primary{background:linear-gradient(135deg,var(--accent),#7aa8ff)}
+  button.success{background:linear-gradient(135deg,var(--accent2),#34d399)}
+  button.danger{background:linear-gradient(135deg,#ff7b84,var(--danger))}
+  button.ghost{background:transparent; border:1px solid #2a3145}
+  input[type=file]{display:none}
+
+  .wrap{max-width:1100px; margin:14px auto; padding:0 12px 80px}
+  .stage{
+    background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:10px; display:grid; grid-template-columns:1fr; gap:10px;
+  }
+  .viewer{
+    position:relative; background:#0a0d14; border-radius:12px; overflow:hidden; min-height:60vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Layering & portrait-friendly sizing */
+  .viewer video,
+  .viewer canvas{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:contain; display:none;
+  }
+  .viewer video{ z-index:1; }
+  .viewer canvas{ z-index:2; }
+
+  /* Mirror only the LIVE front-camera preview (export remains unmirrored) */
+  .viewer video.mirror{ transform:scaleX(-1); }
+
+  .overlay-grid{
+    position:absolute; inset:0; pointer-events:none; z-index:3;
+    background:
+      linear-gradient(transparent 32.9%, rgba(255,255,255,.08) 33%, rgba(255,255,255,.08) 34%, transparent 34%),
+      linear-gradient(transparent 65.9%, rgba(255,255,255,.08) 66%, rgba(255,255,255,.08) 67%, transparent 67%),
+      linear-gradient(90deg, transparent 32.9%, rgba(255,255,255,.08) 33%, rgba(255,255,255,.08) 34%, transparent 34%),
+      linear-gradient(90deg, transparent 65.9%, rgba(255,255,255,.08) 66%, rgba(255,255,255,.08) 67%, transparent 67%);
+    opacity:0; transition:.2s opacity;
+  }
+  .overlay-grid.show{opacity:1}
+
+  .controls{
+    background:var(--panel); border-radius:var(--radius); padding:8px; display:grid; gap:4px;
+  }
+  .row{display:grid; grid-template-columns:130px 1fr 60px; align-items:center; gap:10px; padding:6px 8px; border-radius:10px;}
+  .row:hover{background:#141a27}
+  .row label{color:var(--muted); font-size:.95rem}
+  .row input[type=range]{width:100%}
+  .row output{justify-self:end; color:#c9d4ee; min-width:40px; text-align:right; font-variant-numeric:tabular-nums}
+
+  .toolbar{display:flex; flex-wrap:wrap; gap:8px; padding:6px 0}
+  .subtle{color:var(--muted); font-size:.9rem}
+
+  /* Crop selection */
+  .crop-rect{
+    position:absolute; border:2px dashed #9cc3ff; box-shadow: inset 0 0 0 9999px rgba(0,0,0,.35);
+    touch-action:none; display:none; z-index:4;
+  }
+  .crop-rect.active{display:block}
+  .pill{background:#1f2739; padding:3px 8px; border-radius:999px; font-size:.8rem; color:#cdd7f3}
+
+  @media(min-width:900px){
+    .stage{grid-template-columns:1fr 380px}
+    .controls{position:sticky; top:70px; align-self:start}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="title">📷 One-File Photo Editor</div>
+  <div class="actions">
+    <button id="btnStartCam" class="ghost">Start Camera</button>
+    <button id="btnSwitchCam" class="ghost">Switch</button>
+    <button id="btnSnap" class="primary">Snap</button>
+    <label class="btn">
+      <input id="fileInput" type="file" accept="image/*" capture="environment" />
+      Take/Choose Photo
+    </label>
+    <button id="btnUndo" class="ghost">Undo</button>
+    <button id="btnRedo" class="ghost">Redo</button>
+    <button id="btnReset" class="ghost">Reset</button>
+    <button id="btnDownload" class="success">Download</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="viewer" id="viewer">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="canvas" aria-label="Edited image"></canvas>
+      <div class="overlay-grid" id="grid"></div>
+      <div id="cropRect" class="crop-rect"></div>
+    </div>
+
+    <div class="controls">
+      <div class="toolbar">
+        <button id="btnToggleGrid" class="ghost">Grid</button>
+        <button id="btnRotate" class="ghost">Rotate 90°</button>
+        <button id="btnFlipH" class="ghost">Flip ⟂</button>
+        <button id="btnFlipV" class="ghost">Flip ∥</button>
+        <button id="btnCropMode" class="ghost">Crop</button>
+        <button id="btnApplyCrop" class="danger">Apply Crop</button>
+        <span class="pill" id="hintMode">VIEW</span>
+      </div>
+
+      <div class="subtle">Tip: “Take/Choose Photo” opens the iPhone camera if Safari blocks live camera without HTTPS.</div>
+
+      <div class="row">
+        <label for="rngBrightness">Brightness</label>
+        <input id="rngBrightness" type="range" min="50" max="150" value="100" />
+        <output id="outBrightness">100%</output>
+      </div>
+      <div class="row">
+        <label for="rngContrast">Contrast</label>
+        <input id="rngContrast" type="range" min="50" max="200" value="100" />
+        <output id="outContrast">100%</output>
+      </div>
+      <div class="row">
+        <label for="rngSaturation">Saturation</label>
+        <input id="rngSaturation" type="range" min="0" max="200" value="100" />
+        <output id="outSaturation">100%</output>
+      </div>
+      <div class="row">
+        <label for="rngHue">Hue</label>
+        <input id="rngHue" type="range" min="-180" max="180" value="0" />
+        <output id="outHue">0°</output>
+      </div>
+      <div class="row">
+        <label for="rngSepia">Sepia</label>
+        <input id="rngSepia" type="range" min="0" max="100" value="0" />
+        <output id="outSepia">0%</output>
+      </div>
+      <div class="row">
+        <label for="rngGrayscale">Grayscale</label>
+        <input id="rngGrayscale" type="range" min="0" max="100" value="0" />
+        <output id="outGrayscale">0%</output>
+      </div>
+      <div class="row">
+        <label for="rngBlur">Blur</label>
+        <input id="rngBlur" type="range" min="0" max="10" value="0" step="0.5" />
+        <output id="outBlur">0px</output>
+      </div>
+      <div class="row">
+        <label for="rngVignette">Vignette</label>
+        <input id="rngVignette" type="range" min="0" max="100" value="0" />
+        <output id="outVignette">0%</output>
+      </div>
+
+      <div class="subtle">Press & hold the canvas to see the original.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const qs = s => document.querySelector(s);
+  const video = qs('#video');
+  const canvas = qs('#canvas');
+  const grid = qs('#grid');
+  const viewer = qs('#viewer');
+  const fileInput = qs('#fileInput');
+  const cropRect = qs('#cropRect');
+  const hintMode = qs('#hintMode');
+
+  const ctx = canvas.getContext('2d');
+
+  // Hidden full-res source buffer
+  const srcCanvas = document.createElement('canvas');
+  const srcCtx = srcCanvas.getContext('2d');
+
+  /* ========= Robust camera for iPhone 13 / Safari ========= */
+  let stream = null;
+  let usingBackCamera = true;
+  let currentDeviceId = null;
+
+  function once(target, ev){ return new Promise(res => target.addEventListener(ev, res, {once:true})); }
+  function raf(){ return new Promise(r => requestAnimationFrame(r)); }
+
+  async function waitForVideoReady(){
+    // iOS sometimes reports videoWidth=0 right after play(); wait for data.
+    for (let i=0;i<20;i++){
+      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) return;
+      // requestVideoFrameCallback is best if present
+      if (typeof video.requestVideoFrameCallback === 'function'){
+        await new Promise(r => video.requestVideoFrameCallback(()=>r()));
+      } else {
+        await Promise.race([once(video,'loadeddata'), once(video,'loadedmetadata'), raf()]);
+      }
+    }
+  }
+
+  async function pickCameraDeviceId(preferBack=true){
+    const getInputs = async () => (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    let devices = await getInputs();
+    const haveLabels = devices.some(d => d.label);
+    if (!haveLabels){
+      try{
+        const tmp = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+        tmp.getTracks().forEach(t=>t.stop());
+        devices = await getInputs();
+      }catch{}
+    }
+    if (!devices.length) return null;
+    const want = preferBack ? /(back|rear|wide|tele)/i : /(front|true.?depth)/i;
+    const byName = devices.find(d => want.test(d.label || ''));
+    if (byName) return byName.deviceId;
+    return preferBack ? (devices[devices.length-1]?.deviceId || devices[0].deviceId)
+                      : (devices[0]?.deviceId || devices[devices.length-1].deviceId);
+  }
+
+  function makeConstraints(deviceId){
+    const base = {
+      width:  { ideal: 1920 },
+      height: { ideal: 1080 },
+      aspectRatio: { ideal: 1920/1080 },
+      frameRate: { ideal: 30, max: 60 }
+    };
+    const videoC = deviceId
+      ? { ...base, deviceId: { exact: deviceId } }
+      : { ...base, facingMode: usingBackCamera ? { ideal: 'environment' } : { ideal: 'user' } };
+    return { video: videoC, audio: false };
+  }
+
+  async function startCamera(){
+    try{
+      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+
+      currentDeviceId = await pickCameraDeviceId(usingBackCamera);
+      const constraints = makeConstraints(currentDeviceId);
+
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+      await video.play();
+      await waitForVideoReady();
+
+      // Mirror only for front preview
+      const label = stream.getVideoTracks()[0]?.label || '';
+      const looksFront = /front|true.?depth/i.test(label);
+      video.classList.toggle('mirror', !usingBackCamera || looksFront);
+
+      // Show live preview
+      video.style.display = 'block';
+      canvas.style.display = 'none';
+    }catch(err){
+      alert('Camera error on Safari/iPhone.\nOpen over HTTPS (or localhost) and allow camera.\n\n' + err);
+    }
+  }
+
+  async function snapFromVideo(){
+    // Ensure we have a real frame
+    await waitForVideoReady();
+    if (typeof video.requestVideoFrameCallback === 'function'){
+      await new Promise(r => video.requestVideoFrameCallback(()=>r()));
+    }
+
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    // Copy the exact frame to our full-res buffer
+    srcCanvas.width = vw;
+    srcCanvas.height = vh;
+    srcCtx.drawImage(video, 0, 0, vw, vh);
+
+    // Now switch from live preview to the editing canvas
+    fitCanvasToViewer();
+    pushHistory();
+    state = defaultState();
+
+    video.style.display = 'none';
+    canvas.style.display = 'block';
+
+    render();
+  }
+  /* =============== end camera section =============== */
+
+  /* =============== Editor state =============== */
+  const defaultState = () => ({
+    rotation: 0, flipH: false, flipV: false,
+    filters: { brightness:100, contrast:100, saturation:100, hue:0, sepia:0, grayscale:0, blur:0, vignette:0 },
+    crop: null
+  });
+
+  let state = defaultState();
+  const history = [];
+  const redoStack = [];
+
+  function pushHistory(){ history.push(JSON.stringify(state)); if (history.length>100) history.shift(); redoStack.length=0; }
+  function undo(){ if (!history.length) return; redoStack.push(JSON.stringify(state)); state=JSON.parse(history.pop()); render(); }
+  function redo(){ if (!redoStack.length) return; history.push(JSON.stringify(state)); state=JSON.parse(redoStack.pop()); render(); }
+
+  // Sliders
+  function bindRange(id,out,keyPath,fmt=(v)=>v){
+    const input=qs(id), output=qs(out); const [group,key]=keyPath;
+    input.addEventListener('input',()=>{ state[group][key]=Number(input.value); output.textContent=fmt(input.value); render(); });
+    bindRange.controls=bindRange.controls||[]; bindRange.controls.push({input,output,group,key,formatter:fmt});
+  }
+  bindRange('#rngBrightness','#outBrightness',['filters','brightness'],v=>`${v}%`);
+  bindRange('#rngContrast','#outContrast',['filters','contrast'],v=>`${v}%`);
+  bindRange('#rngSaturation','#outSaturation',['filters','saturation'],v=>`${v}%`);
+  bindRange('#rngHue','#outHue',['filters','hue'],v=>`${v}°`);
+  bindRange('#rngSepia','#outSepia',['filters','sepia'],v=>`${v}%`);
+  bindRange('#rngGrayscale','#outGrayscale',['filters','grayscale'],v=>`${v}%`);
+  bindRange('#rngBlur','#outBlur',['filters','blur'],v=>`${v}px`);
+  bindRange('#rngVignette','#outVignette',['filters','vignette'],v=>`${v}%`);
+
+  // Buttons
+  qs('#btnStartCam').addEventListener('click', startCamera);
+  qs('#btnSwitchCam').addEventListener('click', async ()=>{ usingBackCamera=!usingBackCamera; await startCamera(); });
+  qs('#btnSnap').addEventListener('click', snapFromVideo);
+  qs('#btnUndo').addEventListener('click', undo);
+  qs('#btnRedo').addEventListener('click', redo);
+  qs('#btnReset').addEventListener('click', resetAll);
+  qs('#btnDownload').addEventListener('click', downloadImage);
+  qs('#btnRotate').addEventListener('click', ()=>{ pushHistory(); state.rotation=(state.rotation+90)%360; render(); });
+  qs('#btnFlipH').addEventListener('click', ()=>{ pushHistory(); state.flipH=!state.flipH; render(); });
+  qs('#btnFlipV').addEventListener('click', ()=>{ pushHistory(); state.flipV=!state.flipV; render(); });
+  qs('#btnToggleGrid').addEventListener('click', ()=> grid.classList.toggle('show'));
+  qs('#btnCropMode').addEventListener('click', toggleCropMode);
+  qs('#btnApplyCrop').addEventListener('click', applyCrop);
+
+  // File input (also opens device camera on iPhone)
+  fileInput.addEventListener('change', async (e)=>{
+    const f=e.target.files && e.target.files[0]; if(!f) return;
+    await loadFromFile(f);
+  });
+
+  // Before/after press & hold
+  let holdTimer=null;
+  canvas.addEventListener('pointerdown', ()=>{ holdTimer=setTimeout(()=>showOriginal(true),120); });
+  canvas.addEventListener('pointerup', ()=>{ clearTimeout(holdTimer); showOriginal(false); });
+  canvas.addEventListener('pointerleave', ()=>{ clearTimeout(holdTimer); showOriginal(false); });
+
+  function showOriginal(down){
+    if (!srcCanvas.width) return;
+    if (down) drawToCanvas({bypassFilters:true,bypassTransforms:true});
+    else render();
+  }
+
+  // Load still image
+  async function loadFromFile(file){
+    try{
+      let bmp;
+      try{ bmp = await createImageBitmap(file,{imageOrientation:'from-image'}); }
+      catch{ bmp = await blobToBitmap(file); }
+      srcCanvas.width=bmp.width; srcCanvas.height=bmp.height;
+      srcCtx.clearRect(0,0,srcCanvas.width,srcCanvas.height);
+      srcCtx.drawImage(bmp,0,0);
+
+      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+
+      fitCanvasToViewer(); pushHistory(); state=defaultState();
+      canvas.style.display='block'; video.style.display='none';
+      render();
+    }catch(err){ alert('Could not load image: '+err); }
+  }
+  function blobToBitmap(blob){
+    return new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.onload=()=>{ const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+        c.getContext('2d').drawImage(img,0,0); createImageBitmap(c).then(resolve,reject); };
+      img.onerror=reject; img.src=URL.createObjectURL(blob);
+    });
+  }
+
+  // Layout
+  function fitCanvasToViewer(){
+    const rect = viewer.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+  }
+  window.addEventListener('resize', ()=>{ if (srcCanvas.width){ fitCanvasToViewer(); render(); } });
+
+  // Filters
+  function buildFilter(){
+    const f=state.filters;
+    return [
+      `brightness(${f.brightness}%)`,
+      `contrast(${f.contrast}%)`,
+      `saturate(${f.saturation}%)`,
+      `hue-rotate(${f.hue}deg)`,
+      `sepia(${f.sepia}%)`,
+      `grayscale(${f.grayscale}%)`,
+      `blur(${f.blur}px)`
+    ].join(' ');
+  }
+
+  // Draw
+  function drawToCanvas({bypassFilters=false,bypassTransforms=false}={}){
+    if (!srcCanvas.width) return;
+    const sW=srcCanvas.width, sH=srcCanvas.height;
+    const dW=canvas.width, dH=canvas.height;
+
+    ctx.clearRect(0,0,dW,dH);
+
+    const scale=Math.min(dW/sW, dH/sH);
+    const drawW=sW*scale, drawH=sH*scale;
+    const dx=(dW-drawW)/2, dy=(dH-drawH)/2;
+
+    ctx.save();
+    if (!bypassFilters) ctx.filter=buildFilter();
+    ctx.translate(dx+drawW/2, dy+drawH/2);
+    if (!bypassTransforms){
+      const rad=state.rotation*Math.PI/180;
+      ctx.rotate(rad);
+      ctx.scale(state.flipH?-1:1, state.flipV?-1:1);
+    }
+    ctx.translate(-drawW/2, -drawH/2);
+    ctx.drawImage(srcCanvas, 0,0,sW,sH, 0,0,drawW,drawH);
+    ctx.restore();
+
+    // Vignette overlay
+    if (!bypassFilters && state.filters.vignette>0){
+      const g=ctx.createRadialGradient(dW/2,dH/2,Math.min(dW,dH)*0.2, dW/2,dH/2,Math.max(dW,dH)*0.65);
+      const a=Math.min(1,state.filters.vignette/100)*0.45;
+      g.addColorStop(0,'rgba(0,0,0,0)');
+      g.addColorStop(1,`rgba(0,0,0,${a})`);
+      ctx.fillStyle=g; ctx.fillRect(0,0,dW,dH);
+    }
+
+    cropRect.style.display = cropActive ? 'block' : 'none';
+  }
+  function render(){ if (!srcCanvas.width) return; drawToCanvas(); }
+
+  // Full-res export
+  function renderToFullResCanvas(){
+    const out=document.createElement('canvas');
+    const sW=srcCanvas.width, sH=srcCanvas.height;
+    const rot=((state.rotation%360)+360)%360;
+    const swap=rot===90||rot===270;
+    out.width=swap?sH:sW; out.height=swap?sW:sH;
+    const octx=out.getContext('2d');
+    octx.save();
+    octx.filter=buildFilter();
+    octx.translate(out.width/2, out.height/2);
+    octx.rotate(rot*Math.PI/180);
+    octx.scale(state.flipH?-1:1, state.flipV?-1:1);
+    octx.translate(-sW/2, -sH/2);
+    octx.drawImage(srcCanvas,0,0);
+    octx.restore();
+    if (state.filters.vignette>0){
+      const g=octx.createRadialGradient(out.width/2,out.height/2,Math.min(out.width,out.height)*0.2, out.width/2,out.height/2,Math.max(out.width,out.height)*0.65);
+      const a=Math.min(1,state.filters.vignette/100)*0.45;
+      g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,0,${a})`);
+      octx.fillStyle=g; octx.fillRect(0,0,out.width,out.height);
+    }
+    return out;
+  }
+
+  async function downloadImage(){
+    if (!srcCanvas.width) return;
+    const out=renderToFullResCanvas();
+    if (appliedCropInSrcSpace){
+      const {x,y,w,h}=appliedCropInSrcSpace;
+      const crop=document.createElement('canvas'); crop.width=w; crop.height=h;
+      crop.getContext('2d').drawImage(out,x,y,w,h,0,0,w,h);
+      out.width=w; out.height=h;
+      out.getContext('2d').drawImage(crop,0,0);
+    }
+    out.toBlob((blob)=>{
+      const a=document.createElement('a'); const url=URL.createObjectURL(blob);
+      a.href=url; a.download=`edit-${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    },'image/png',1.0);
+  }
+
+  function resetAll(){
+    pushHistory(); state=defaultState(); appliedCropInSrcSpace=null;
+    (bindRange.controls||[]).forEach(({input,output,group,key,formatter})=>{
+      const def=defaultState()[group][key]; input.value=def; output.textContent=formatter(def);
+    });
+    render();
+  }
+
+  // Crop
+  let cropActive=false; let drag=null; let appliedCropInSrcSpace=null;
+
+  function toggleCropMode(){
+    cropActive=!cropActive; hintMode.textContent=cropActive?'CROP':'VIEW';
+    cropRect.classList.toggle('active',cropActive);
+    if (!cropActive){ state.crop=null; cropRect.style.display='none'; }
+    else{
+      cropRect.style.display='block'; cropRect.style.left='10%'; cropRect.style.top='10%'; cropRect.style.width='80%'; cropRect.style.height='80%';
+      state.crop = domRectToCanvasRect(cropRect.getBoundingClientRect());
+    }
+  }
+
+  viewer.addEventListener('pointerdown',(e)=>{
+    if (!cropActive) return;
+    viewer.setPointerCapture(e.pointerId);
+    const r=viewer.getBoundingClientRect();
+    drag={startX:e.clientX-r.left, startY:e.clientY-r.top};
+    placeCropRect(drag.startX,drag.startY,0,0);
+  });
+  viewer.addEventListener('pointermove',(e)=>{
+    if (!cropActive||!drag) return;
+    const r=viewer.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    placeCropRect(Math.min(drag.startX,x), Math.min(drag.startY,y), Math.abs(x-drag.startX), Math.abs(y-drag.startY));
+  });
+  viewer.addEventListener('pointerup',()=>{ if (!cropActive) return; drag=null; state.crop=domRectToCanvasRect(cropRect.getBoundingClientRect()); });
+  viewer.addEventListener('pointerleave',()=>{ drag=null; });
+
+  function placeCropRect(x,y,w,h){
+    const r=viewer.getBoundingClientRect();
+    cropRect.style.left=`${x}px`; cropRect.style.top=`${y}px`; cropRect.style.width=`${w}px`; cropRect.style.height=`${h}px`;
+    cropRect.classList.add('active');
+    state.crop = domRectToCanvasRect(new DOMRect(r.left+x, r.top+y, w, h));
+  }
+  function domRectToCanvasRect(dr){
+    const cr=canvas.getBoundingClientRect();
+    const x=(dr.left-cr.left)*(canvas.width/cr.width);
+    const y=(dr.top-cr.top)*(canvas.height/cr.height);
+    const w=dr.width*(canvas.width/cr.width);
+    const h=dr.height*(canvas.height/cr.height);
+    return {x:Math.max(0,x), y:Math.max(0,y), w:Math.max(0,w), h:Math.max(0,h)};
+  }
+  function applyCrop(){
+    if (!state.crop || state.crop.w<10 || state.crop.h<10){ alert('Draw a crop area first.'); return; }
+    const full=renderToFullResCanvas();
+    const sx=Math.round(state.crop.x * (full.width / canvas.width));
+    const sy=Math.round(state.crop.y * (full.height / canvas.height));
+    const sw=Math.round(state.crop.w * (full.width / canvas.width));
+    const sh=Math.round(state.crop.h * (full.height / canvas.height));
+    appliedCropInSrcSpace = {x:clamp(sx,0,full.width-1), y:clamp(sy,0,full.height-1), w:clamp(sw,1,full.width), h:clamp(sh,1,full.height)};
+
+    const cc=document.createElement('canvas'); cc.width=appliedCropInSrcSpace.w; cc.height=appliedCropInSrcSpace.h;
+    cc.getContext('2d').drawImage(full, appliedCropInSrcSpace.x,appliedCropInSrcSpace.y,appliedCropInSrcSpace.w,appliedCropInSrcSpace.h, 0,0,appliedCropInSrcSpace.w,appliedCropInSrcSpace.h);
+
+    srcCanvas.width=cc.width; srcCanvas.height=cc.height; srcCtx.clearRect(0,0,srcCanvas.width,srcCanvas.height); srcCtx.drawImage(cc,0,0);
+
+    state.rotation=0; state.flipH=false; state.flipV=false; state.crop=null; cropActive=false; hintMode.textContent='VIEW';
+    fitCanvasToViewer(); render();
+  }
+  function clamp(v,min,max){ return Math.min(Math.max(v,min),max); }
+
+  // Init
+  function init(){
+    video.style.display='none';
+    canvas.style.display='none';
+    hintMode.textContent='VIEW';
+    render();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
